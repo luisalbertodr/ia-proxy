@@ -32,18 +32,13 @@ services:
       - ia-network
 
   ngrok:
-    image: ngrok/ngrok:latest
-    container_name: ngrok
-    restart: unless-stopped
-    depends_on:
-      - proxy
-    ports:
-      - "4042:4040"
-    environment:
-      - NGROK_AUTHTOKEN=3Fa8xgy9ZedTaiGor4QqDHWjDnz_4YiWa15UiA1EQ5vpCGWi4
-    command: http --url=palace-police-reversal.ngrok-free.dev proxy:5000 --log=stdout
-    networks:
-      - ia-network
+  image: ngrok/ngrok:latest
+  container_name: ngrok
+  restart: unless-stopped
+  network_mode: host  # Usar network_mode: host
+  environment:
+    - NGROK_AUTHTOKEN=3Fa8xgy9ZedTaiGor4QqDHWjDnz_4YiWa15UiA1EQ5vpCGWi4
+  command: http --url=palace-police-reversal.ngrok-free.dev 5000 --log=stdout
 
 networks:
   ia-network:
