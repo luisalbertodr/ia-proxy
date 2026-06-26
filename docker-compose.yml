@@ -6,7 +6,7 @@ services:
     container_name: litellm
     restart: unless-stopped
     ports:
-      - "4003:4000"  # Cambiado a 4003 para evitar conflicto
+      - "4003:4000"
     environment:
       - LITELLM_LOG=DEBUG
       - DISABLE_DB=true
@@ -17,7 +17,9 @@ services:
       - ia-network
 
   proxy:
-    image: python:3.10-slim
+    build:
+      context: ./proxy
+      dockerfile: Dockerfile.proxy
     container_name: proxy-transform
     restart: unless-stopped
     depends_on:
@@ -25,11 +27,7 @@ services:
     ports:
       - "5000:5000"
     environment:
-      - LITELLM_URL=http://litellm:4000/v1/chat/completions  # Usa el nombre del contenedor y puerto interno
-    working_dir: /app
-    command: sh -c "pip install flask requests -q && python /app/proxy_transform.py"
-    volumes:
-      - ./proxy/proxy_transform.py:/app/proxy_transform.py:ro
+      - LITELLM_URL=http://litellm:4000/v1/chat/completions
     networks:
       - ia-network
 
@@ -42,8 +40,8 @@ services:
     ports:
       - "4042:4040"
     environment:
-      - NGROK_AUTHTOKEN=3Fa8xgy9ZedTaiGor4QqDHWjDnz_4YiWa15UiA1EQ5vpCGWi4
-    command: http --url=palace-police-reversal.ngrok-free.dev proxy:5000 --log=stdout
+      - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN}
+    command: http --url=${NGROK_URL} proxy:5000 --log=stdout
     networks:
       - ia-network
 
