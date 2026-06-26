@@ -1,5 +1,4 @@
-﻿#!/usr/bin/env python3
-from flask import Flask, request, jsonify
+﻿from flask import Flask, request, jsonify
 import requests
 import json
 import uuid
