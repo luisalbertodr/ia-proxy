@@ -1,45 +1,35 @@
-﻿version: '3.8'
+version: '3.8'
 
 services:
   litellm:
     image: hwdsl2/litellm-server:latest
     container_name: litellm
     restart: unless-stopped
-    ports:
-      - "4002:4000"
+    network_mode: host
     environment:
       - LITELLM_LOG=DEBUG
       - DISABLE_DB=true
       - DISABLE_AUTH=true
       - OLLAMA_API_BASE=http://192.168.99.27:11434
     command: litellm --model ollama/localIA:latest --api_base http://192.168.99.27:11434 --port 4000 --drop_params --temperature 0.1 --add_function_to_prompt --debug
-    networks:
-      - ia-network
 
   proxy:
-    build:
-      context: ./proxy
-      dockerfile: Dockerfile.proxy
+    image: python:3.10-slim
     container_name: proxy-transform
     restart: unless-stopped
-    depends_on:
-      - litellm
-    ports:
-      - "5000:5000"
+    network_mode: host
     environment:
-      - LITELLM_URL=http://litellm:4000/v1/chat/completions
-    networks:
-      - ia-network
+      - LITELLM_URL=http://localhost:4000/v1/chat/completions
+    working_dir: /app
+    command: sh -c "pip install flask requests -q && python /app/proxy_transform.py"
+    volumes:
+      - ./proxy/proxy_transform.py:/app/proxy_transform.py:ro
 
   ngrok:
-  image: ngrok/ngrok:latest
-  container_name: ngrok
-  restart: unless-stopped
-  network_mode: host  # Usar network_mode: host
-  environment:
-    - NGROK_AUTHTOKEN=3Fa8xgy9ZedTaiGor4QqDHWjDnz_4YiWa15UiA1EQ5vpCGWi4
-  command: http --url=palace-police-reversal.ngrok-free.dev 5000 --log=stdout
-
-networks:
-  ia-network:
-    driver: bridge
+    image: ngrok/ngrok:latest
+    container_name: ngrok
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      - NGROK_AUTHTOKEN=3Fa8xgy9ZedTaiGor4QqDHWjDnz_4YiWa15UiA1EQ5vpCGWi4
+    command: http --url=palace-police-reversal.ngrok-free.dev 5000 --log=stdout
