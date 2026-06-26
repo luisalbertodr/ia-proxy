@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, Response
+from flask import Flask, request, jsonify
 import requests
 import json
 import uuid
@@ -17,10 +17,8 @@ def extract_tool_call_from_text(text):
     if not text or not isinstance(text, str):
         return None
     
-    # Buscar patrones JSON en el texto
     json_pattern = r'\{[^{}]*"name"\s*:\s*"[^"]+"\s*,\s*"arguments"\s*:\s*\{[^{}]*\}[^{}]*\}'
     matches = re.findall(json_pattern, text)
-    
     for match in matches:
         try:
             parsed = json.loads(match)
@@ -34,10 +32,8 @@ def extract_tool_call_from_text(text):
         except:
             continue
     
-    # Buscar function_name como alternativa
     func_pattern = r'\{[^{}]*"function_name"\s*:\s*"[^"]+"\s*,\s*"arguments"\s*:\s*\{[^{}]*\}[^{}]*\}'
     matches = re.findall(func_pattern, text)
-    
     for match in matches:
         try:
             parsed = json.loads(match)
@@ -53,7 +49,6 @@ def extract_tool_call_from_text(text):
 
 @app.route('/v1/chat/completions', methods=['POST', 'OPTIONS'])
 def proxy():
-    # Manejar CORS
     if request.method == 'OPTIONS':
         response = jsonify({'status': 'ok'})
         response.headers.add('Access-Control-Allow-Origin', '*')
@@ -72,13 +67,12 @@ def proxy():
             logger.warning("Datos JSON vacíos")
             return jsonify({'error': 'Empty JSON data'}), 400
         
-        logger.info(f"Request recibida: {json.dumps(data, indent=2)[:500]}")
+        logger.info(f"Request recibida")
         
-        # Verificar que tiene el modelo
         if 'model' not in data:
             data['model'] = 'localIA:latest'
         
-        # Reenviar a LiteLLM con timeout
+        # Reenviar a LiteLLM
         try:
             response = requests.post(
                 LITELLM_URL,
@@ -86,8 +80,19 @@ def proxy():
                 headers={'Content-Type': 'application/json'},
                 timeout=120
             )
-            response.raise_for_status()
-            result = response.json()
+            
+            # Verificar que la respuesta no está vacía
+            if not response.text or response.text.strip() == '':
+                logger.error("Respuesta vacía de LiteLLM")
+                return jsonify({'error': 'Empty response from LiteLLM'}), 500
+            
+            # Verificar que es JSON válido
+            try:
+                result = response.json()
+            except json.JSONDecodeError as e:
+                logger.error(f"Respuesta no JSON de LiteLLM: {response.text[:200]}")
+                return jsonify({'error': f'Invalid JSON from LiteLLM: {str(e)}'}), 500
+            
         except requests.exceptions.RequestException as e:
             logger.error(f"Error conectando a LiteLLM: {str(e)}")
             return jsonify({'error': f'Error connecting to LiteLLM: {str(e)}'}), 500
@@ -99,10 +104,8 @@ def proxy():
             
             if content and isinstance(content, str):
                 tool_call = extract_tool_call_from_text(content)
-                
                 if tool_call:
                     logger.info(f"Tool call detectado: {tool_call['name']}")
-                    
                     result['choices'][0]['message']['content'] = None
                     result['choices'][0]['message']['tool_calls'] = [{
                         'id': f'call_{uuid.uuid4().hex[:8]}',
@@ -114,7 +117,6 @@ def proxy():
                     }]
                     result['choices'][0]['finish_reason'] = 'tool_calls'
         
-        # Añadir CORS a la respuesta
         json_response = jsonify(result)
         json_response.headers.add('Access-Control-Allow-Origin', '*')
         return json_response
