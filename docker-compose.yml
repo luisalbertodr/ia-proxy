@@ -6,7 +6,7 @@ services:
     container_name: litellm
     restart: unless-stopped
     ports:
-      - "4002:4000"
+      - "4003:4000"  # Cambiado a 4003 para evitar conflicto
     environment:
       - LITELLM_LOG=DEBUG
       - DISABLE_DB=true
@@ -17,9 +17,7 @@ services:
       - ia-network
 
   proxy:
-    build:
-      context: ./proxy
-      dockerfile: Dockerfile.proxy
+    image: python:3.10-slim
     container_name: proxy-transform
     restart: unless-stopped
     depends_on:
@@ -27,7 +25,11 @@ services:
     ports:
       - "5000:5000"
     environment:
-      - LITELLM_URL=http://litellm:4000/v1/chat/completions
+      - LITELLM_URL=http://litellm:4000/v1/chat/completions  # Usa el nombre del contenedor y puerto interno
+    working_dir: /app
+    command: sh -c "pip install flask requests -q && python /app/proxy_transform.py"
+    volumes:
+      - ./proxy/proxy_transform.py:/app/proxy_transform.py:ro
     networks:
       - ia-network
 
