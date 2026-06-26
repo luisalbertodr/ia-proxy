@@ -1,0 +1,52 @@
+﻿version: '3.8'
+
+services:
+  litellm:
+    image: hwdsl2/litellm-server:latest
+    container_name: litellm
+    restart: unless-stopped
+    ports:
+      - "4002:4000"
+    volumes:
+      - ./config/litellm.yaml:/etc/litellm/litellm.yaml:ro
+    environment:
+      - LITELLM_LOG=DEBUG
+      - DISABLE_DB=true
+      - DISABLE_AUTH=true
+      - OLLAMA_API_BASE=
+    command: litellm --config /etc/litellm/litellm.yaml --port 4000 --debug
+    networks:
+      - ia-network
+
+  proxy:
+    build:
+      context: ./proxy
+      dockerfile: Dockerfile.proxy
+    container_name: proxy-transform
+    restart: unless-stopped
+    depends_on:
+      - litellm
+    ports:
+      - "5000:5000"
+    environment:
+      - LITELLM_URL=http://litellm:4000/v1/chat/completions
+    networks:
+      - ia-network
+
+  ngrok:
+    image: ngrok/ngrok:latest
+    container_name: ngrok
+    restart: unless-stopped
+    depends_on:
+      - proxy
+    ports:
+      - "4042:4040"
+    environment:
+      - NGROK_AUTHTOKEN=
+    command: http --url= proxy:5000 --log=stdout
+    networks:
+      - ia-network
+
+networks:
+  ia-network:
+    driver: bridge
