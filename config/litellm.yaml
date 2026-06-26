@@ -1,8 +1,8 @@
-﻿model_list:
+model_list:
   - model_name: localIA:latest
     litellm_params:
       model: ollama/localIA:latest
-      api_base: 
+      api_base: ${OLLAMA_API_BASE}
       api_key: sk-local-placeholder-key
       drop_params: true
       custom_llm_provider: ollama
