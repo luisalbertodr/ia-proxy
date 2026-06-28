@@ -13,6 +13,7 @@ services:
       - LITELLM_LOG=DEBUG
       - DISABLE_DB=true
       - DISABLE_AUTH=true
+      - OLLAMA_API_BASE=http://192.168.99.27:11434  # <-- Pasa la IP de tu servidor Ollama
     entrypoint: ["litellm"]
     command: ["--config", "/app/config.yaml", "--port", "4000", "--debug"]
     networks:
