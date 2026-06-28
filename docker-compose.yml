@@ -21,6 +21,7 @@ services:
       "--alias", "IALuis",
       "--drop_params",
       "--temperature", "0.1",
+      "--num_ctx", "16384",
       "--debug"
     ]
     networks:
