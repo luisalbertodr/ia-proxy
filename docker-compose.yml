@@ -11,19 +11,11 @@ services:
       - LITELLM_LOG=DEBUG
       - DISABLE_DB=true
       - DISABLE_AUTH=true
-      - OLLAMA_API_BASE=http://192.168.99.27:11434
-      - OLLAMA_NUM_CTX=16384  # <--- FUERZA A OLLAMA A SEPARAR 16K DE CONTEXTO EN GPU
-      - OPENAI_API_KEY=sk-local-placeholder-key
     entrypoint: ["litellm"]
-    command: [
-      "--model", "openai/localIA:latest",
-      "--api_base", "http://192.168.99.27:11434/v1",
-      "--port", "4000",
-      "--alias", "IALuis",
-      "--drop_params",
-      "--temperature", "0.1",
-      "--debug"
-    ]
+    command: ["--config", "/app/config.yaml", "--port", "4000", "--debug"]
+    configs:
+      - source: litellm_config
+        target: /app/config.yaml
     networks:
       - ia-network
 
@@ -49,3 +41,15 @@ services:
 networks:
   ia-network:
     driver: bridge
+
+configs:
+  litellm_config:
+    content: |
+      model_list:
+        - model_name: IALuis
+          litellm_params:
+            model: ollama/localIA:latest
+            api_base: http://192.168.99.27:11434
+            num_ctx: 16384
+            temperature: 0.1
+            tfs_z: 1.0
