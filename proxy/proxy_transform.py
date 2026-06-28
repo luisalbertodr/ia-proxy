@@ -1,4 +1,4 @@
-﻿from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify
 import requests
 import json
 import uuid
@@ -11,7 +11,7 @@ app = Flask(__name__)
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-LITELLM_URL = os.environ.get('LITELLM_URL', 'http://litellm:4000/v1/chat/completions')
+LITELLM_URL = os.environ.get('LITELLM_URL', 'http://localhost:4000/v1/chat/completions')
 
 def extract_tool_call_from_text(text):
     if not text or not isinstance(text, str):
@@ -56,12 +56,12 @@ def proxy():
             return jsonify({'error': 'Content-Type must be application/json'}), 415
         
         data = request.json
-        logger.info(f"Request recibida")
+        logger.info(f"Request recibida: {json.dumps(data, indent=2)[:500]}")
         
         if 'model' not in data:
             data['model'] = 'localIA:latest'
         
-        # Eliminar tools para evitar error en Ollama
+        # Eliminar tools para evitar error en LiteLLM
         if 'tools' in data:
             del data['tools']
         
@@ -73,16 +73,26 @@ def proxy():
                 timeout=120
             )
             
+            logger.info(f"Response status: {response.status_code}")
+            logger.info(f"Response text (primeros 500 chars): {response.text[:500]}")
+            
             if not response.text or response.text.strip() == '':
                 logger.error("Respuesta vacía de LiteLLM")
                 return jsonify({'error': 'Empty response from LiteLLM'}), 500
             
-            result = response.json()
+            try:
+                result = response.json()
+                logger.info(f"Response JSON parseado correctamente")
+            except json.JSONDecodeError as e:
+                logger.error(f"Error decodificando JSON: {str(e)}")
+                logger.error(f"Respuesta original: {response.text}")
+                return jsonify({'error': f'Invalid JSON from LiteLLM: {str(e)}'}), 500
             
         except requests.exceptions.RequestException as e:
             logger.error(f"Error conectando a LiteLLM: {str(e)}")
             return jsonify({'error': str(e)}), 500
         
+        # Verificar si la respuesta contiene un tool call en texto plano
         if 'choices' in result and len(result['choices']) > 0:
             message = result['choices'][0].get('message', {})
             content = message.get('content', '')
@@ -109,7 +119,7 @@ def proxy():
         return json_response
         
     except Exception as e:
-        logger.error(f"Error: {str(e)}")
+        logger.error(f"Error general: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/health', methods=['GET'])
