@@ -1,8 +1,8 @@
-﻿version: '3.8'
+version: '3.8'
 
 services:
   litellm:
-    image: ghcr.io/berriai/litellm:main
+    image: hwdsl2/litellm-server:latest
     container_name: litellm
     restart: unless-stopped
     ports:
@@ -22,13 +22,13 @@ services:
     depends_on:
       - litellm
     environment:
-      - NGROK_AUTHTOKEN=
+      - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN}
     command: >
       http 
-      --url= 
+      --url=${NGROK_URL} 
       litellm:4000 
       --log=stdout 
-      --request-header-add=ngrok-skip-browser-warning:true
+      --request-header-show=true
     networks:
       - ia-network
 
