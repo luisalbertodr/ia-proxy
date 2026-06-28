@@ -45,6 +45,9 @@ networks:
 configs:
   litellm_config:
     content: |
+      litellm_settings:
+        drop_params: true       # <-- Forzado global en los ajustes de LiteLLM
+
       model_list:
         - model_name: IALuis
           litellm_params:
@@ -53,4 +56,4 @@ configs:
             num_ctx: 16384
             temperature: 0.1
             tfs_z: 1.0
-            drop_params: true
+            drop_params: true   # <-- Forzado individual por modelo
