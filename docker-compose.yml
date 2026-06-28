@@ -35,7 +35,12 @@ services:
       - "4042:4040"
     environment:
       - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN}
-    command: http --url=${NGROK_URL} litellm:4000 --log=stdout --request-header-add "ngrok-skip-browser-warning: true"
+    command: >
+      http 
+      --url=${NGROK_URL} 
+      litellm:4000 
+      --log=stdout 
+      --request-header-add=ngrok-skip-browser-warning:true
     networks:
       - ia-network
 
