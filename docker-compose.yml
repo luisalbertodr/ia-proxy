@@ -1,4 +1,4 @@
-﻿version: '3.8'
+version: '3.8'
 
 services:
   litellm:
@@ -27,7 +27,7 @@ services:
     ports:
       - "5000:5000"
     environment:
-      - LITELLM_URL=http://litellm:4000/v1/chat/completions
+      - LITELLM_URL=http://192.168.99.110:4003/v1/chat/completions
     networks:
       - ia-network
 
@@ -41,9 +41,12 @@ services:
       - "4042:4040"
     environment:
       - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN}
-    command: http --url=${NGROK_URL} proxy:5000 --log=stdout
-    networks:
-      - ia-network
+    command: >
+      http 
+      --url=${NGROK_URL} 
+      proxy:5000 
+      --log=stdout 
+      --authtoken=${NGROK_AUTHTOKEN}
 
 networks:
   ia-network:
