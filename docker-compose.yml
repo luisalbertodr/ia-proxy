@@ -27,8 +27,7 @@ services:
       http 
       --url=${NGROK_URL} 
       litellm:4000 
-      --log=stdout 
-      --request-header-show=true
+      --log=stdout
     networks:
       - ia-network
 
