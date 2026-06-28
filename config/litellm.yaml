@@ -1,0 +1,31 @@
+﻿model_list:
+  - model_name: localIA:latest
+    litellm_params:
+      model: ollama/localIA:latest
+      api_base: 
+      api_key: sk-local-placeholder-key
+      custom_llm_provider: ollama
+      num_ctx: 16384
+      max_tokens: 8192
+      temperature: 0.1
+      tfs_z: 1.0
+      drop_params: true
+
+litellm_settings:
+  drop_params: true
+  set_verbose: true
+  cache: false
+  disable_db: true
+  disable_auth: true
+
+general_settings:
+  disable_db: true
+  disable_auth: true
+  master_key: sk-local-placeholder-key
+  enable_jwt_auth: false
+  use_local_db: false
+
+environment_variables:
+  DISABLE_DB: "true"
+  DISABLE_AUTH: "true"
+  LITELLM_LOG: "DEBUG"

@@ -1,0 +1,122 @@
+﻿from flask import Flask, request, jsonify
+import requests
+import json
+import uuid
+import re
+import os
+import logging
+
+app = Flask(__name__)
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+LITELLM_URL = os.environ.get('LITELLM_URL', 'http://litellm:4000/v1/chat/completions')
+
+def extract_tool_call_from_text(text):
+    if not text or not isinstance(text, str):
+        return None
+    
+    patterns = [
+        r'\{[^{}]*"function_name"\s*:\s*"[^"]+"\s*,\s*"function_arguments"\s*:\s*\{[^{}]*\}[^{}]*\}',
+        r'\{[^{}]*"name"\s*:\s*"[^"]+"\s*,\s*"arguments"\s*:\s*\{[^{}]*\}[^{}]*\}'
+    ]
+    
+    for pattern in patterns:
+        matches = re.findall(pattern, text)
+        for match in matches:
+            try:
+                parsed = json.loads(match)
+                if 'function_name' in parsed and 'function_arguments' in parsed:
+                    return {
+                        'name': parsed['function_name'],
+                        'arguments': json.dumps(parsed['function_arguments'])
+                    }
+                if 'name' in parsed and 'arguments' in parsed:
+                    return {
+                        'name': parsed['name'],
+                        'arguments': json.dumps(parsed['arguments'])
+                    }
+            except:
+                continue
+    
+    return None
+
+@app.route('/v1/chat/completions', methods=['POST', 'OPTIONS'])
+def proxy():
+    if request.method == 'OPTIONS':
+        response = jsonify({'status': 'ok'})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+        response.headers.add('Access-Control-Allow-Methods', 'POST,OPTIONS')
+        return response
+    
+    try:
+        if not request.is_json:
+            return jsonify({'error': 'Content-Type must be application/json'}), 415
+        
+        data = request.json
+        logger.info(f"Request recibida")
+        
+        if 'model' not in data:
+            data['model'] = 'localIA:latest'
+        
+        # Eliminar tools para evitar error en Ollama
+        if 'tools' in data:
+            del data['tools']
+        
+        try:
+            response = requests.post(
+                LITELLM_URL,
+                json=data,
+                headers={'Content-Type': 'application/json'},
+                timeout=120
+            )
+            
+            if not response.text or response.text.strip() == '':
+                logger.error("Respuesta vacía de LiteLLM")
+                return jsonify({'error': 'Empty response from LiteLLM'}), 500
+            
+            result = response.json()
+            
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Error conectando a LiteLLM: {str(e)}")
+            return jsonify({'error': str(e)}), 500
+        
+        if 'choices' in result and len(result['choices']) > 0:
+            message = result['choices'][0].get('message', {})
+            content = message.get('content', '')
+            
+            if content and isinstance(content, str):
+                tool_call = extract_tool_call_from_text(content)
+                
+                if tool_call:
+                    logger.info(f"Tool call detectado: {tool_call['name']}")
+                    
+                    result['choices'][0]['message']['content'] = None
+                    result['choices'][0]['message']['tool_calls'] = [{
+                        'id': f'call_{uuid.uuid4().hex[:8]}',
+                        'type': 'function',
+                        'function': {
+                            'name': tool_call['name'],
+                            'arguments': tool_call['arguments']
+                        }
+                    }]
+                    result['choices'][0]['finish_reason'] = 'tool_calls'
+        
+        json_response = jsonify(result)
+        json_response.headers.add('Access-Control-Allow-Origin', '*')
+        return json_response
+        
+    except Exception as e:
+        logger.error(f"Error: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/health', methods=['GET'])
+def health():
+    response = jsonify({'status': 'ok'})
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    return response
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000, debug=False)
