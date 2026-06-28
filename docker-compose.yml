@@ -46,7 +46,10 @@ configs:
   litellm_config:
     content: |
       litellm_settings:
-        drop_params: true       # <-- Forzado global en los ajustes de LiteLLM
+        drop_params: true
+        drop_tools: true            # <-- ELIMINA EL BLOQUE "TOOLS" ANTES DE ENVIAR A OLLAMA
+        drop_functions: true        # <-- ELIMINA "FUNCTIONS" POR SI ACASO
+        turn_off_message_validation: true
 
       model_list:
         - model_name: IALuis
@@ -56,4 +59,4 @@ configs:
             num_ctx: 16384
             temperature: 0.1
             tfs_z: 1.0
-            drop_params: true   # <-- Forzado individual por modelo
+            drop_params: true
