@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, Response, stream_with_context
 import requests
 import json
 import uuid
@@ -65,60 +65,88 @@ def proxy():
         if 'tools' in data:
             del data['tools']
         
-        # FORZAR stream=False para evitar problemas
-        if 'stream' in data:
-            del data['stream']
+        is_stream = data.get('stream', False)
         
-        try:
-            response = requests.post(
-                LITELLM_URL,
-                json=data,
-                headers={'Content-Type': 'application/json'},
-                timeout=120
-            )
-            
-            logger.info(f"Response status: {response.status_code}")
-            
-            if not response.text or response.text.strip() == '':
-                logger.error("Respuesta vacía de LiteLLM")
-                return jsonify({'error': 'Empty response from LiteLLM'}), 500
-            
-            try:
-                result = response.json()
-            except json.JSONDecodeError as e:
-                logger.error(f"Error decodificando JSON: {str(e)}")
-                logger.error(f"Respuesta: {response.text[:200]}")
-                return jsonify({'error': f'Invalid JSON from LiteLLM: {str(e)}'}), 500
-            
-            # Verificar si hay tool call
-            if 'choices' in result and len(result['choices']) > 0:
-                message = result['choices'][0].get('message', {})
-                content = message.get('content', '')
-                
-                if content and isinstance(content, str):
-                    tool_call = extract_tool_call_from_text(content)
+        if is_stream:
+            # Manejar streaming correctamente
+            def generate():
+                try:
+                    response = requests.post(
+                        LITELLM_URL,
+                        json=data,
+                        headers={'Content-Type': 'application/json'},
+                        timeout=120,
+                        stream=True
+                    )
                     
-                    if tool_call:
-                        logger.info(f"Tool call detectado: {tool_call['name']}")
+                    if response.status_code != 200:
+                        yield f"data: {json.dumps({'error': f'Error from LiteLLM: {response.status_code}'})}\n\n"
+                        yield "data: [DONE]\n\n"
+                        return
+                    
+                    for line in response.iter_lines():
+                        if line:
+                            decoded = line.decode('utf-8')
+                            if decoded.startswith('data: '):
+                                yield f"{decoded}\n\n"
+                    
+                    yield "data: [DONE]\n\n"
+                    
+                except Exception as e:
+                    logger.error(f"Error en streaming: {str(e)}")
+                    yield f"data: {json.dumps({'error': str(e)})}\n\n"
+                    yield "data: [DONE]\n\n"
+            
+            return Response(
+                stream_with_context(generate()),
+                status=200,
+                headers={
+                    'Content-Type': 'text/event-stream',
+                    'Cache-Control': 'no-cache',
+                    'Access-Control-Allow-Origin': '*'
+                }
+            )
+        else:
+            # Manejar respuesta no streaming
+            try:
+                response = requests.post(
+                    LITELLM_URL,
+                    json=data,
+                    headers={'Content-Type': 'application/json'},
+                    timeout=120
+                )
+                
+                result = response.json()
+                
+                # Verificar tool calls
+                if 'choices' in result and len(result['choices']) > 0:
+                    message = result['choices'][0].get('message', {})
+                    content = message.get('content', '')
+                    
+                    if content and isinstance(content, str):
+                        tool_call = extract_tool_call_from_text(content)
                         
-                        result['choices'][0]['message']['content'] = None
-                        result['choices'][0]['message']['tool_calls'] = [{
-                            'id': f'call_{uuid.uuid4().hex[:8]}',
-                            'type': 'function',
-                            'function': {
-                                'name': tool_call['name'],
-                                'arguments': tool_call['arguments']
-                            }
-                        }]
-                        result['choices'][0]['finish_reason'] = 'tool_calls'
-            
-            json_response = jsonify(result)
-            json_response.headers.add('Access-Control-Allow-Origin', '*')
-            return json_response
-            
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Error conectando a LiteLLM: {str(e)}")
-            return jsonify({'error': str(e)}), 500
+                        if tool_call:
+                            logger.info(f"Tool call detectado: {tool_call['name']}")
+                            
+                            result['choices'][0]['message']['content'] = None
+                            result['choices'][0]['message']['tool_calls'] = [{
+                                'id': f'call_{uuid.uuid4().hex[:8]}',
+                                'type': 'function',
+                                'function': {
+                                    'name': tool_call['name'],
+                                    'arguments': tool_call['arguments']
+                                }
+                            }]
+                            result['choices'][0]['finish_reason'] = 'tool_calls'
+                
+                json_response = jsonify(result)
+                json_response.headers.add('Access-Control-Allow-Origin', '*')
+                return json_response
+                
+            except Exception as e:
+                logger.error(f"Error: {str(e)}")
+                return jsonify({'error': str(e)}), 500
         
     except Exception as e:
         logger.error(f"Error general: {str(e)}")
