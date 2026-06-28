@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   litellm:
-    image: hwdsl2/litellm-server:latest
+    image: ghcr.io/berriai/litellm:main
     container_name: litellm
     restart: unless-stopped
     ports:
@@ -12,22 +12,16 @@ services:
       - DISABLE_DB=true
       - DISABLE_AUTH=true
       - OLLAMA_API_BASE=http://192.168.99.27:11434
-    command: litellm --model ollama/localIA:latest --api_base http://192.168.99.27:11434 --port 4000 --drop_params --temperature 0.1 --add_function_to_prompt --debug
-    networks:
-      - ia-network
-
-  proxy:
-    build:
-      context: ./proxy
-      dockerfile: Dockerfile.proxy
-    container_name: proxy-transform
-    restart: unless-stopped
-    depends_on:
-      - litellm
-    ports:
-      - "5000:5000"
-    environment:
-      - LITELLM_URL=http://192.168.99.110:4003/v1/chat/completions
+      - OPENAI_API_KEY=sk-local-placeholder-key
+    command: >
+      litellm 
+      --model openai/localIA:latest 
+      --api_base http://192.168.99.27:11434/v1 
+      --port 4000 
+      --alias gpt-4o 
+      --drop_params 
+      --temperature 0.1 
+      --debug
     networks:
       - ia-network
 
@@ -36,12 +30,12 @@ services:
     container_name: ngrok
     restart: unless-stopped
     depends_on:
-      - proxy
+      - litellm
     ports:
       - "4042:4040"
     environment:
       - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN}
-    command: http --url=${NGROK_URL} proxy:5000 --log=stdout
+    command: http --url=${NGROK_URL} litellm:4000 --log=stdout --request-header-add "ngrok-skip-browser-warning: true"
     networks:
       - ia-network
 
