@@ -18,7 +18,7 @@ services:
       --model openai/localIA:latest 
       --api_base http://192.168.99.27:11434/v1 
       --port 4000 
-      --alias gpt-4o 
+      --alias IALuis 
       --drop_params 
       --temperature 0.1 
       --debug
