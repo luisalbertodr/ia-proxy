@@ -1,4 +1,4 @@
-version: '3.8'
+﻿version: '3.8'
 
 services:
   litellm:
@@ -7,15 +7,11 @@ services:
     restart: unless-stopped
     ports:
       - "4003:4000"
-    volumes:
-      - ./config/litellm.yaml:/app/config.yaml:ro
     environment:
       - LITELLM_LOG=DEBUG
-      - DISABLE_DB=true
-      - DISABLE_AUTH=true
-      - OLLAMA_API_BASE=http://192.168.99.27:11434  # <-- Pasa la IP de tu servidor Ollama
-    entrypoint: ["litellm"]
-    command: ["--config", "/app/config.yaml", "--port", "4000", "--debug"]
+      - CONFIG_PATH=/app/config.yaml
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
     networks:
       - ia-network
 
@@ -25,13 +21,11 @@ services:
     restart: unless-stopped
     depends_on:
       - litellm
-    ports:
-      - "4042:4040"
     environment:
-      - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN}
+      - NGROK_AUTHTOKEN=
     command: >
       http 
-      --url=${NGROK_URL} 
+      --url= 
       litellm:4000 
       --log=stdout 
       --request-header-add=ngrok-skip-browser-warning:true
