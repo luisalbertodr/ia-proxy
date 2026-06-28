@@ -1,5 +1,5 @@
-﻿model_list:
-  - model_name: localIA
+model_list:
+  - model_name: localIA:latest
     litellm_params:
       model: ollama/localIA:latest
       api_base: http://192.168.99.27:11434
