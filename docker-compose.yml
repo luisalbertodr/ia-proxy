@@ -53,3 +53,4 @@ configs:
             num_ctx: 16384
             temperature: 0.1
             tfs_z: 1.0
+            drop_params: true
