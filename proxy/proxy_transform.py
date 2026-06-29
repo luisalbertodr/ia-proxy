@@ -65,32 +65,50 @@ def proxy():
         if 'tools' in data:
             del data['tools']
         
+        # Forzar max_tokens si no está presente
+        if 'max_tokens' not in data:
+            data['max_tokens'] = 16384
+        
         is_stream = data.get('stream', False)
         
+        # Headers para LiteLLM
+        headers = {
+            'Content-Type': 'application/json'
+        }
+        
+        # Si es streaming, añadir Accept correcto
         if is_stream:
-            # Manejar streaming correctamente
+            headers['Accept'] = 'text/event-stream'
+        
+        if is_stream:
+            # Manejar streaming
             def generate():
                 try:
                     response = requests.post(
                         LITELLM_URL,
                         json=data,
-                        headers={'Content-Type': 'application/json'},
+                        headers=headers,
                         timeout=120,
                         stream=True
                     )
                     
                     if response.status_code != 200:
-                        yield f"data: {json.dumps({'error': f'Error from LiteLLM: {response.status_code}'})}\n\n"
+                        error_msg = f"Error from LiteLLM: {response.status_code} - {response.text[:200]}"
+                        logger.error(error_msg)
+                        yield f"data: {json.dumps({'error': error_msg})}\n\n"
                         yield "data: [DONE]\n\n"
                         return
                     
+                    # Reenviar el stream línea por línea
                     for line in response.iter_lines():
                         if line:
                             decoded = line.decode('utf-8')
+                            # Reenviar solo líneas que comienzan con "data: "
                             if decoded.startswith('data: '):
                                 yield f"{decoded}\n\n"
-                    
-                    yield "data: [DONE]\n\n"
+                            # También reenviar líneas "data: [DONE]"
+                            elif decoded == 'data: [DONE]':
+                                yield "data: [DONE]\n\n"
                     
                 except Exception as e:
                     logger.error(f"Error en streaming: {str(e)}")
@@ -112,9 +130,13 @@ def proxy():
                 response = requests.post(
                     LITELLM_URL,
                     json=data,
-                    headers={'Content-Type': 'application/json'},
+                    headers=headers,
                     timeout=120
                 )
+                
+                if response.status_code != 200:
+                    logger.error(f"LiteLLM error: {response.status_code} - {response.text[:200]}")
+                    return jsonify({'error': f'LiteLLM error: {response.status_code}'}), response.status_code
                 
                 result = response.json()
                 
