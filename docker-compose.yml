@@ -12,11 +12,8 @@ services:
       - DISABLE_DB=true
       - DISABLE_AUTH=true
     volumes:
-      # Usamos el archivo real de tu repo (está en la raíz)
-      # Esto mapea el archivo de tu repo directamente dentro del contenedor
-      - ./litellm.yaml:/config/litellm.yaml:ro
-    # Apuntamos el comando a la nueva ruta dentro del contenedor
-    command: litellm --config /config/litellm.yaml --port 4000 --debug
+      - ./litellm.yaml:/app/litellm.yaml:ro
+    command: litellm --config /app/litellm.yaml --port 4000 --debug
     networks:
       - ia-network
 
