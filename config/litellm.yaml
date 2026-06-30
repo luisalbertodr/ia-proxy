@@ -2,6 +2,7 @@
   - model_name: localIA:latest
     litellm_params:
       model: ollama_chat/localIA:latest
+      custom_llm_provider: ollama_chat
       api_base: http://192.168.99.27:11434
       api_key: sk-local-placeholder-key
       num_ctx: 16384
