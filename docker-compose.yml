@@ -2,20 +2,20 @@ version: '3.8'
 
 services:
   litellm:
-	  image: hwdsl2/litellm-server:latest
-	  container_name: litellm
-	  restart: unless-stopped
-	  ports:
-	    - "4003:4000"
-	  environment:
-	    - LITELLM_LOG=DEBUG
-	    - DISABLE_DB=true
-	    - DISABLE_AUTH=true
-	  volumes:
-	    - ./config/litellm.yaml:/etc/litellm/config.yaml
-	  command: litellm --config /etc/litellm/config.yaml --port 4000 --debug
-	  networks:
-	    - ia-network
+    image: hwdsl2/litellm-server:latest
+    container_name: litellm
+    restart: unless-stopped
+    ports:
+	  - "4003:4000"
+    environment:
+	  - LITELLM_LOG=DEBUG
+	  - DISABLE_DB=true
+	  - DISABLE_AUTH=true
+    volumes:
+	  - ./config/litellm.yaml:/etc/litellm/config.yaml
+    command: litellm --config /etc/litellm/config.yaml --port 4000 --debug
+    networks:
+	  - ia-network
 
   proxy:
     build:
