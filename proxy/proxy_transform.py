@@ -19,6 +19,8 @@ def extract_tool_call_from_text(text):
     
     # Múltiples patrones para detectar tool calls en texto plano
     patterns = [
+        # Formato: { "id": "call_1", "type": "function", "Function": { "name": "...", "arguments": {...} } }
+        r'\{[^{}]*"id"\s*:\s*"[^"]+"\s*,\s*"type"\s*:\s*"[^"]+"\s*,\s*"[Ff]unction"\s*:\s*\{[^{}]*"name"\s*:\s*"[^"]+"\s*,\s*"arguments"\s*:\s*\{[^{}]*\}[^{}]*\}\}',
         # Formato: { "function": { "name": "...", "arguments": {...} } }
         r'\{[^{}]*"function"\s*:\s*\{[^{}]*"name"\s*:\s*"[^"]+"\s*,\s*"arguments"\s*:\s*\{[^{}]*\}[^{}]*\}\}',
         # Formato: { "name": "...", "arguments": {...} }
@@ -32,6 +34,19 @@ def extract_tool_call_from_text(text):
         for match in matches:
             try:
                 parsed = json.loads(match)
+                logger.info(f"Intentando parsear: {parsed}")
+                
+                # Formato: { "id": "...", "type": "function", "Function": { ... } }
+                # o { "id": "...", "type": "function", "function": { ... } }
+                if 'id' in parsed and 'type' in parsed and parsed['type'] == 'function':
+                    func_key = 'Function' if 'Function' in parsed else 'function'
+                    if func_key in parsed and isinstance(parsed[func_key], dict):
+                        func = parsed[func_key]
+                        if 'name' in func and 'arguments' in func:
+                            return {
+                                'name': func['name'],
+                                'arguments': json.dumps(func['arguments'])
+                            }
                 
                 # Formato: { "function": { "name": "...", "arguments": {...} } }
                 if 'function' in parsed and isinstance(parsed['function'], dict):
@@ -166,11 +181,13 @@ def proxy():
                     content = message.get('content', '')
                     
                     if content and isinstance(content, str):
-                        # Primero, verificar si hay un tool call en el contenido
+                        logger.info(f"Contenido a analizar: {content[:500]}")
+                        
+                        # Buscar tool call en el contenido
                         tool_call = extract_tool_call_from_text(content)
                         
                         if tool_call:
-                            logger.info(f"Tool call detectado: {tool_call['name']}")
+                            logger.info(f"✅ Tool call detectado: {tool_call['name']}")
                             logger.info(f"Arguments: {tool_call['arguments']}")
                             
                             # Reemplazar el contenido con el tool call
@@ -185,8 +202,7 @@ def proxy():
                             }]
                             result['choices'][0]['finish_reason'] = 'tool_calls'
                         else:
-                            # Si no hay tool call, mantener el contenido
-                            logger.info("No se detectó tool call, respuesta normal")
+                            logger.info("❌ No se detectó tool call, respuesta normal")
                 
                 json_response = jsonify(result)
                 json_response.headers.add('Access-Control-Allow-Origin', '*')
