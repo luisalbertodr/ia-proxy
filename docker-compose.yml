@@ -12,9 +12,10 @@ services:
       - DISABLE_DB=true
       - DISABLE_AUTH=true
     volumes:
-      # Usamos ruta relativa: el archivo litellm.yaml debe estar en la misma carpeta que este docker-compose.yml
-      - ./litellm.yaml:/etc/litellm/config.yaml
-    command: litellm --config /etc/litellm/config.yaml --port 4000 --debug
+      # Corregido: apuntamos al archivo que está dentro del repo
+      - ./litellm.yaml:/app/litellm.yaml
+    # Corregido: la ruta interna ahora coincide con el volumen
+    command: litellm --config /app/litellm.yaml --port 4000 --debug
     networks:
       - ia-network
 
@@ -29,7 +30,7 @@ services:
     ports:
       - "5000:5000"
     environment:
-      # CAMBIO CRÍTICO: Usamos el nombre del servicio 'litellm' en lugar de la IP
+      # Usamos el nombre del servicio para comunicación interna
       - LITELLM_URL=http://litellm:4000/v1/chat/completions
     networks:
       - ia-network
