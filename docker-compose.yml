@@ -6,16 +6,16 @@ services:
     container_name: litellm
     restart: unless-stopped
     ports:
-	  - "4003:4000"
+      - "4003:4000"
     environment:
-	  - LITELLM_LOG=DEBUG
-	  - DISABLE_DB=true
-	  - DISABLE_AUTH=true
+      - LITELLM_LOG=DEBUG
+      - DISABLE_DB=true
+      - DISABLE_AUTH=true
     volumes:
-	  - ./config/litellm.yaml:/etc/litellm/config.yaml
+      - ./config/litellm.yaml:/etc/litellm/config.yaml
     command: litellm --config /etc/litellm/config.yaml --port 4000 --debug
     networks:
-	  - ia-network
+      - ia-network
 
   proxy:
     build:
