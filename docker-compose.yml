@@ -1,6 +1,9 @@
 version: '3.8'
 
 services:
+  version: '3.8'
+
+services:
   litellm:
     image: hwdsl2/litellm-server:latest
     container_name: litellm
@@ -12,9 +15,9 @@ services:
       - DISABLE_DB=true
       - DISABLE_AUTH=true
     volumes:
-      # Corregido: apuntamos al archivo que está dentro del repo
-      - ./litellm.yaml:/app/litellm.yaml
-    # Corregido: la ruta interna ahora coincide con el volumen
+      # Usamos un volumen llamado 'litellm_config'
+      - litellm_config:/app/litellm.yaml
+    # Montamos el archivo dentro del contenedor de esta forma:
     command: litellm --config /app/litellm.yaml --port 4000 --debug
     networks:
       - ia-network
@@ -53,6 +56,9 @@ services:
       --authtoken=${NGROK_AUTHTOKEN}
     networks:
       - ia-network
+      
+volumes:
+  litellm_config:
 
 networks:
   ia-network:
