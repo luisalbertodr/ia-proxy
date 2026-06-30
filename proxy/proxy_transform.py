@@ -17,9 +17,14 @@ def extract_tool_call_from_text(text):
     if not text or not isinstance(text, str):
         return None
     
+    # Múltiples patrones para detectar tool calls en texto plano
     patterns = [
-        r'\{[^{}]*"function_name"\s*:\s*"[^"]+"\s*,\s*"function_arguments"\s*:\s*\{[^{}]*\}[^{}]*\}',
-        r'\{[^{}]*"name"\s*:\s*"[^"]+"\s*,\s*"arguments"\s*:\s*\{[^{}]*\}[^{}]*\}'
+        # Formato: { "function": { "name": "...", "arguments": {...} } }
+        r'\{[^{}]*"function"\s*:\s*\{[^{}]*"name"\s*:\s*"[^"]+"\s*,\s*"arguments"\s*:\s*\{[^{}]*\}[^{}]*\}\}',
+        # Formato: { "name": "...", "arguments": {...} }
+        r'\{[^{}]*"name"\s*:\s*"[^"]+"\s*,\s*"arguments"\s*:\s*\{[^{}]*\}[^{}]*\}',
+        # Formato: { "function_name": "...", "function_arguments": {...} }
+        r'\{[^{}]*"function_name"\s*:\s*"[^"]+"\s*,\s*"function_arguments"\s*:\s*\{[^{}]*\}[^{}]*\}'
     ]
     
     for pattern in patterns:
@@ -27,17 +32,32 @@ def extract_tool_call_from_text(text):
         for match in matches:
             try:
                 parsed = json.loads(match)
-                if 'function_name' in parsed and 'function_arguments' in parsed:
-                    return {
-                        'name': parsed['function_name'],
-                        'arguments': json.dumps(parsed['function_arguments'])
-                    }
+                
+                # Formato: { "function": { "name": "...", "arguments": {...} } }
+                if 'function' in parsed and isinstance(parsed['function'], dict):
+                    func = parsed['function']
+                    if 'name' in func and 'arguments' in func:
+                        return {
+                            'name': func['name'],
+                            'arguments': json.dumps(func['arguments'])
+                        }
+                
+                # Formato: { "name": "...", "arguments": {...} }
                 if 'name' in parsed and 'arguments' in parsed:
                     return {
                         'name': parsed['name'],
                         'arguments': json.dumps(parsed['arguments'])
                     }
-            except:
+                
+                # Formato: { "function_name": "...", "function_arguments": {...} }
+                if 'function_name' in parsed and 'function_arguments' in parsed:
+                    return {
+                        'name': parsed['function_name'],
+                        'arguments': json.dumps(parsed['function_arguments'])
+                    }
+                    
+            except Exception as e:
+                logger.debug(f"Error parseando match: {str(e)}")
                 continue
     
     return None
@@ -140,17 +160,20 @@ def proxy():
                 
                 result = response.json()
                 
-                # Verificar tool calls
+                # Verificar tool calls en la respuesta
                 if 'choices' in result and len(result['choices']) > 0:
                     message = result['choices'][0].get('message', {})
                     content = message.get('content', '')
                     
                     if content and isinstance(content, str):
+                        # Primero, verificar si hay un tool call en el contenido
                         tool_call = extract_tool_call_from_text(content)
                         
                         if tool_call:
                             logger.info(f"Tool call detectado: {tool_call['name']}")
+                            logger.info(f"Arguments: {tool_call['arguments']}")
                             
+                            # Reemplazar el contenido con el tool call
                             result['choices'][0]['message']['content'] = None
                             result['choices'][0]['message']['tool_calls'] = [{
                                 'id': f'call_{uuid.uuid4().hex[:8]}',
@@ -161,6 +184,9 @@ def proxy():
                                 }
                             }]
                             result['choices'][0]['finish_reason'] = 'tool_calls'
+                        else:
+                            # Si no hay tool call, mantener el contenido
+                            logger.info("No se detectó tool call, respuesta normal")
                 
                 json_response = jsonify(result)
                 json_response.headers.add('Access-Control-Allow-Origin', '*')
