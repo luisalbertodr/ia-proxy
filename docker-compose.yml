@@ -1,9 +1,6 @@
 version: '3.8'
 
 services:
-  version: '3.8'
-
-services:
   litellm:
     image: hwdsl2/litellm-server:latest
     container_name: litellm
