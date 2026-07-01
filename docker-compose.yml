@@ -26,6 +26,7 @@ services:
       - "5000:5000"
     environment:
       - LITELLM_URL=http://192.168.99.110:4003/v1/chat/completions
+      - LITELLM_API_KEY=sk-local-placeholder-key
     networks:
       - ia-network
   ngrok:
