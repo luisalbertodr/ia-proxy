@@ -1,8 +1,9 @@
 version: '3.8'
-
 services:
   litellm:
-    image: hwdsl2/litellm-server:latest
+    build:
+      context: .
+      dockerfile: Dockerfile.litellm
     container_name: litellm
     restart: unless-stopped
     ports:
@@ -11,12 +12,8 @@ services:
       - LITELLM_LOG=DEBUG
       - DISABLE_DB=true
       - DISABLE_AUTH=true
-    volumes:
-      - ./litellm.yaml:/app/litellm.yaml:ro
-    command: litellm --config /app/litellm.yaml --port 4000 --debug
     networks:
       - ia-network
-
   proxy:
     build:
       context: .
@@ -28,10 +25,9 @@ services:
     ports:
       - "5000:5000"
     environment:
-      - LITELLM_URL=http://litellm:4000/v1/chat/completions
+      - LITELLM_URL=http://192.168.99.110:4003/v1/chat/completions
     networks:
       - ia-network
-
   ngrok:
     image: ngrok/ngrok:latest
     container_name: ngrok
@@ -45,12 +41,11 @@ services:
     command: >
       http
       --url=${NGROK_URL}
-      proxy:5000
+      192.168.99.110:5000
       --log=stdout
       --authtoken=${NGROK_AUTHTOKEN}
     networks:
       - ia-network
-
 networks:
   ia-network:
     driver: bridge
