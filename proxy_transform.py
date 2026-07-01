@@ -11,6 +11,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 LITELLM_URL = os.environ.get('LITELLM_URL', 'http://localhost:4000/v1/chat/completions')
+LITELLM_API_KEY = os.environ.get('LITELLM_API_KEY', 'sk-local-placeholder-key')
 
 # Alias aceptados para cada campo, en orden de prioridad
 NAME_KEYS = ['name', 'function_name', 'tool_name', 'Name']
@@ -119,7 +120,10 @@ def proxy():
 
         is_stream = data.get('stream', False)
 
-        headers = {'Content-Type': 'application/json'}
+        headers = {
+            'Content-Type': 'application/json',
+            'Authorization': f'Bearer {LITELLM_API_KEY}'
+        }
         if is_stream:
             headers['Accept'] = 'text/event-stream'
 
