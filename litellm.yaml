@@ -5,8 +5,8 @@
       custom_llm_provider: ollama_chat
       api_base: http://192.168.99.27:11434
       api_key: sk-local-placeholder-key
-      num_ctx: 6144
-      max_tokens: 8192
+      num_ctx: 10240
+      max_tokens: 5120
       temperature: 0.1
       drop_params: true
 litellm_settings:
