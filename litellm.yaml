@@ -1,27 +1,48 @@
-﻿model_list:
+model_list:
   - model_name: localIA:latest
     litellm_params:
-      model: ollama_chat/localIA:latest
+      model: ollama_chat/fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:IQ2_M
       custom_llm_provider: ollama_chat
       api_base: http://192.168.99.27:11434
       api_key: sk-local-placeholder-key
-      num_ctx: 16384
-      max_tokens: 8192
+      # 🎯 Configuración de contexto ajustada al máximo
+      num_ctx: 8192
+      num_predict: 4096
       temperature: 0.1
+      top_p: 0.95
+      top_k: 40
+      repeat_penalty: 1.1
+      stop: ["<|im_end|>", "<|endoftext|>"]
       drop_params: true
+      
+      # 🚀 Optimizaciones específicas para este modelo
+      num_gpu: -1  # Usar todas las GPUs disponibles
+      main_gpu: 0  # GPU principal
+      tensor_split: [16]  # Solo una GPU de 16GB
+      
 litellm_settings:
   drop_params: true
   set_verbose: true
   cache: false
   disable_db: true
   disable_auth: true
+
 general_settings:
   disable_db: true
   disable_auth: true
   master_key: sk-local-placeholder-key
   enable_jwt_auth: false
   use_local_db: false
+
 environment_variables:
   DISABLE_DB: "true"
   DISABLE_AUTH: "true"
   LITELLM_LOG: "DEBUG"
+  # 🎯 Optimización del cache KV para reducir VRAM
+  OLLAMA_KV_CACHE_TYPE: "q8_0"  # Reduce el consumo del contexto a la mitad
+  OLLAMA_FLASH_ATTENTION: "true"  # Mejora el rendimiento
+  OLLAMA_KEEP_ALIVE: "5m"  # Mantiene el modelo cargado en VRAM
+  OLLAMA_HOST: "0.0.0.0:11434"
+  OLLAMA_LOAD_TIMEOUT: "300"
+  OLLAMA_NUM_PARALLEL: "1"
+  OLLAMA_MAX_LOADED_MODELS: "1"
