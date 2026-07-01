@@ -129,6 +129,10 @@ def proxy():
 
         if is_stream:
             def generate():
+                accumulated_content = ""
+                saw_native_tool_call = False
+                buffered_lines = []
+
                 try:
                     response = requests.post(
                         LITELLM_URL, json=data, headers=headers,
@@ -143,12 +147,71 @@ def proxy():
                         return
 
                     for line in response.iter_lines():
-                        if line:
-                            decoded = line.decode('utf-8')
-                            if decoded.startswith('data: '):
-                                yield f"{decoded}\n\n"
-                            elif decoded == 'data: [DONE]':
-                                yield "data: [DONE]\n\n"
+                        if not line:
+                            continue
+                        decoded = line.decode('utf-8')
+
+                        if decoded == 'data: [DONE]':
+                            # Fin del stream: si no hubo tool_call nativo, intentamos
+                            # el fallback sobre el contenido acumulado, y si algo se
+                            # rescata, lo inyectamos como un chunk extra de tool_calls
+                            # antes de cerrar, para que Cursor lo procese igualmente.
+                            if not saw_native_tool_call and accumulated_content.strip():
+                                logger.info(
+                                    f"Sin tool_calls nativos en streaming. "
+                                    f"Contenido acumulado a analizar: {accumulated_content[:500]}"
+                                )
+                                tool_call = extract_tool_call_from_text(accumulated_content)
+                                if tool_call:
+                                    logger.warning(
+                                        f"⚠️ Tool call rescatado por fallback de texto "
+                                        f"(streaming, no nativo): {tool_call['name']}. "
+                                        f"Revisa el Modelfile/plantilla si esto ocurre con frecuencia."
+                                    )
+                                    fallback_chunk = {
+                                        'id': f'chatcmpl-{uuid.uuid4().hex[:8]}',
+                                        'object': 'chat.completion.chunk',
+                                        'choices': [{
+                                            'index': 0,
+                                            'delta': {
+                                                'tool_calls': [{
+                                                    'index': 0,
+                                                    'id': f'call_{uuid.uuid4().hex[:8]}',
+                                                    'type': 'function',
+                                                    'function': {
+                                                        'name': tool_call['name'],
+                                                        'arguments': tool_call['arguments']
+                                                    }
+                                                }]
+                                            },
+                                            'finish_reason': 'tool_calls'
+                                        }]
+                                    }
+                                    yield f"data: {json.dumps(fallback_chunk)}\n\n"
+                                else:
+                                    logger.info("❌ No se detectó tool call ni nativo ni por texto (streaming)")
+                            elif saw_native_tool_call:
+                                logger.info("✅ Tool call nativo recibido (streaming)")
+
+                            yield "data: [DONE]\n\n"
+                            continue
+
+                        if decoded.startswith('data: '):
+                            # Inspeccionamos el chunk para acumular content y detectar tool_calls nativos
+                            try:
+                                chunk_json = json.loads(decoded[len('data: '):])
+                                choices = chunk_json.get('choices', [])
+                                if choices:
+                                    delta = choices[0].get('delta', {})
+                                    if delta.get('tool_calls'):
+                                        saw_native_tool_call = True
+                                    piece = delta.get('content')
+                                    if piece:
+                                        accumulated_content += piece
+                            except Exception:
+                                pass  # chunk no parseable como JSON, se reenvía igual
+
+                            yield f"{decoded}\n\n"
 
                 except Exception as e:
                     logger.error(f"Error en streaming: {str(e)}")
